@@ -1,0 +1,30 @@
+#
+# TClogger          This shell script takes care of starting and stopping
+#               Temperature collection and storage via SE521 thermocouple logger
+#
+
+[Unit]
+Description= Daemon to collect roof temperature using SE521 thermocouple logger
+After=mysqld.service
+BindsTo=mysqld.service
+After=network.target 
+OnFailure=unit-status-email@%n
+# because it is set to restart, we also include rate limiting otherwise it
+# never is regarded as failing
+StartLimitIntervalSec=240
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=solar
+Group=logfiles
+ExecStart=/usr/local/SE521/bin/SE521-logger.py -D
+KillMode=process
+TimeoutSec=30
+Restart=on-failure
+#Restart=no
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
+

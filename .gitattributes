@@ -1,0 +1,7 @@
+*	text eol=lf
+.git*	text eol=lf
+*.zip	-text
+*.tgz	-text
+*.gz	-text
+*.mwb	-text
+*.pdf	-text

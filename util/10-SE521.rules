@@ -1,0 +1,5 @@
+# make the Center 521 data logger available to logging script.
+# on Windows it uses a HID interface.
+#
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="e000", OWNER="solar", GROUP="weather", MODE="0660", SYMLINK+="SE521_logger"
+SUBSYSTEM=="hidraw*", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="e000", OWNER="solar", GROUP="weather", MODE="0660"
