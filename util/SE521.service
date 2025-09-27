@@ -4,7 +4,7 @@
 #
 
 [Unit]
-Description= Daemon to collect roof temperature using SE521 thermocouple logger
+Description= Daemon to collect temperatures using SE521 thermocouple logger
 After=mysqld.service
 BindsTo=mysqld.service
 After=network.target 

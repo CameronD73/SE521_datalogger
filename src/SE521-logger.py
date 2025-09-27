@@ -12,8 +12,26 @@ import logging.handlers
 
 log = logging.getLogger( "SE521_log" )
 
-VERSION = "0.4"
+VERSION = "0.5"
 
+DEBUG_CONSOLE = 0x10
+debug = 1
+"""
+Sampling algorithm:
+By default the code will read a number of samples (defined as avge_nsamples) of each thermocouple channel;
+ a certain number of seconds between each set of 4 readings (avge_interval_sec);
+ it will then report/save the average.
+If the "-s" argument is supplied then only a single reading (of each t/c) is taken.
+The process is repeated such that there are  record_interval_min minutes between samples.
+
+This procedure will not be suitable if you want to capture more rapid changes - it is designed for slowly changing temperatures only.
+Note that the instrument itself only samples a few times per second, so mains frequency noise (50 or 60 Hz) is likely to be heavily filtered.
+"""
+avge_nsamples = 20
+avge_interval_sec = 1
+record_interval_min = 1
+
+##################################   end of configuration
 
 def printpkt( pkt ):
     """ A routine for pretty-printing the data packet returned from
@@ -31,13 +49,8 @@ def printpkt( pkt ):
     print( "" )
 
 
-DEBUG_CONSOLE = 0x10
-debug = 1
-avge_nsamples = 20
-avge_interval = 1
-
 parser = argparse.ArgumentParser( description="read thermocouple temperatures from SE521" )
-modegroup = parser.add_mutually_exclusive_group( required=True )
+modegroup = parser.add_mutually_exclusive_group( required=False )
 modegroup.add_argument('-D', '--daemon', action='store_true',
                   help='run as a daemon - save to DB')
 modegroup.add_argument('-l', '--live', action='store_true',
@@ -74,9 +87,10 @@ else:
 # These modules are only loaded here, because they might trigger an error log message.
 # So only load after logging has been set up.
 import SE521_USB
-import DB_rooftemp
+if args.daemon:
+    import SE521_dbcode
 
-log.info( "Starting SE521 logger, version {}, averaging {:d} samples, {:.1f} s apart.".format( VERSION, avge_nsamples, avge_interval ) )
+log.info( "Starting SE521 logger, version {}, averaging {:d} samples, {:.1f} s apart.".format( VERSION, avge_nsamples, avge_interval_sec ) )
 
 stn = SE521_USB.SE521_usb(  )
 
@@ -84,10 +98,10 @@ log.info( "Station is  product: %s, by: %s; Ser num : %s" % (stn.product, stn.ma
 
 if args.daemon or args.live:
     if args.daemon:
-        db = DB_rooftemp.roof_temp_DB( mode="rw")
+        db = SE521_dbcode.temperatureDB( mode="rw")
     now = time.time()
-    # work out the duration of the averaging process, including overheads
-    avge_half_duration = 0.5 * avge_nsamples * (avge_interval + 0.11)
+    # calculate the duration of the averaging process, including overheads
+    avge_half_duration = 0.5 * avge_nsamples * (avge_interval_sec + 0.11)
     next_save_minute = int( math.floor((now / 60 )) ) - 1
     start_time = 0
     # we want to allow min 5 seconds in order that sleep time is not too short
@@ -99,7 +113,7 @@ if args.daemon or args.live:
     log.info( "Sleeping for {:.1f} s to align to minute".format( start_delay ) )
     time.sleep( start_delay )
     data = dict()
-    for packet in stn.loop_average( nsamples=avge_nsamples, interval=avge_interval ):
+    for packet in stn.loop_average( nsamples=avge_nsamples, interval=avge_interval_sec ):
         midtime = packet["time"]
         expected_time = next_save_minute * 60
         timediff = midtime - expected_time
@@ -111,11 +125,11 @@ if args.daemon or args.live:
             # expected_time.   Somehow it seems to sometimes create a number fractionally below
             # the integer value, even though it should stay an integer!.
             data["DateTm"] = datetime.datetime.fromtimestamp( expected_time )
-        data["panel_temp"] = packet["TC0"]
-        data["air_under_panel"] = packet["TC1"] 
-        data["tile_under"] = packet["TC2"]
-        data["air_in_roof"] = packet["TC3"]
-        data["tile_top"] = None
+        # convert from 0-indexed to 1, to match the labelling on the instrument
+        data["tc1"] = packet["TC0"]
+        data["tc2"] = packet["TC1"] 
+        data["tc3"] = packet["TC2"]
+        data["tc4"] = packet["TC3"]
         
         if args.daemon:
             db.add_data( data )
@@ -127,7 +141,7 @@ if args.daemon or args.live:
         # exact minute
         now = time.time()
         while start_time < (now + 2):
-            next_save_minute += 1
+            next_save_minute += record_interval_min
             start_time = next_save_minute * 60 - avge_half_duration
         start_delay = start_time - now
 

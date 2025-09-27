@@ -4,4 +4,4 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c '/bin/systemctl status %i | /usr/bin/mailx -s "[SYSTEMD_%i] Fail" systemmail@davidsoncj.id.au'
+ExecStart=/bin/sh -c '/bin/systemctl status %i | /usr/bin/mailx -s "[SYSTEMD_%i] Fail" systemmail@localhost'

@@ -91,7 +91,7 @@ class SE521_usb:
         is detected to be open circuit.
         In that case the temperature value is meaningless,
         but not always constant. 
-        LSB is for TC channel 4, then channel 3, etc.
+        LSB is assigned to TC channel 4, then channel 3, etc.
         The high 4 bits duplicate the low 4, as far as I have observed so far.
         """
         if (flag & 0x0f) & (8 >> tcnum) == 1:
@@ -121,7 +121,7 @@ class SE521_usb:
 
     
     def read_next_set( self ):
-        """ take a single set of readings from teh thermocouple logger
+        """ take a single set of readings from the thermocouple logger
         Return:
         A dict with the following fields:
         time:       a timestamp at which the reading was taken

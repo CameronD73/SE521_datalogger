@@ -1,6 +1,6 @@
 CREATE DATABASE SE521;
 
-CREATE TABLE SE521.tempratures (
+CREATE TABLE SE521.temperatures (
   `DateTm` datetime NOT NULL,
   `tc1` float DEFAULT NULL,
   `tc2` float DEFAULT NULL,
