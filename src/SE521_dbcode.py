@@ -39,7 +39,7 @@ class SE521DBError( Exception ):
 class temperatureDB( ):
 
     insert_stmt = f"INSERT IGNORE into {DB_settings.tableName} ( \
-            DateTm, {DB_settings.tc1Name}, {DB_settings.tc2Name},{DB_settings.tc3Name},{DB_settings.tc4Name}, ) \
+            DateTm, {DB_settings.tc1Name}, {DB_settings.tc2Name},{DB_settings.tc3Name},{DB_settings.tc4Name} ) \
             VALUES (%(DateTm)s, %(tc1)s, %(tc2)s, %(tc3)s, %(tc4)s)"
  
     def __init__( self, mode = "ro" ):
