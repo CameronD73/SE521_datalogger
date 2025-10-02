@@ -11,7 +11,7 @@ class DB_settings( ):
     password = "USER-PASSWD-HERE"
  
     dbHost = "127.0.0.1"
-    dbPort = "3306"
+    dbPort = 3306     # not a string
     dbName = "SE521"
     tableName = "temperatures"
     # column names assigned to DB ... for thermocouples 1 to 4 on unit
