@@ -1,51 +1,60 @@
 """
 SE521_DB
-Python class to handling data xfer between SE521 logger and mysql database
+Python class to handling data transfer between SE521 logger and mysql database
 vim: sw=4 ts=4 expandtab
-    """
+"""
 
 import sys
 
-import mysql.connector
-from mysql.connector import errorcode as msqlerrcode
+try:
+    # first try using the python-mysqldb
+    import MySQLdb as mysqlconn
+    from MySQLdb import DatabaseError as MySQLDatabaseError
+except ImportError:
+    # if that failed, try MySQL's connector...
+    import mysql.connector
+    # from mysql.connector import errorcode as msqlerrcode
+    from mysql import connector as mysqlconn
+    from _mysql_exceptions import DatabaseError as MySQLDatabaseError
 import logging
 
 log = logging.getLogger( "SE521_log.DBmodule" )
 
-DRIVER_NAME = "DB_rooftemp"
-DRIVER_VERSION = "0.04"
+DRIVER_NAME = "DB_temperature"
+DRIVER_VERSION = "0.05"
+# get the site-specific settings
+import SE521_dbsettings
+from SE521_dbsettings import DB_settings
 
 debug=1
-
 
 if sys.version_info[0] != 3:
     log.error("This script requires Python version 3")
     sys.exit(1)
 
-class SolarDBError( Exception ):
+class SE521DBError( Exception ):
     """ base class for exceptions that might occur here """
 
 
-class roof_temp_DB( ):
+class temperatureDB( ):
 
-    roof_insert = """
-        INSERT IGNORE into rooftemp ( DateTm, panel, air_under_panel, tile_top, tile_underneath, air_in_roof )
-              VALUES 
-            (%(DateTm)s, %(panel_temp)s, %(air_under_panel)s, %(tile_top)s, %(tile_under)s, %(air_in_roof)s)"""
+    insert_stmt = f"INSERT IGNORE into {DB_settings.tableName} ( \
+            DateTm, {DB_settings.tc1Name}, {DB_settings.tc2Name},{DB_settings.tc3Name},{DB_settings.tc4Name}, ) \
+            VALUES (%(DateTm)s, %(tc1)s, %(tc2)s, %(tc3)s, %(tc4)s)"
  
     def __init__( self, mode = "ro" ):
         if mode == "ro":
             self.dbuser="readmany"
             self.dbpw = ""
         elif mode == "rw":
-            self.dbuser="USER-NAME-HERE"
-            self.dbpw = "USER-PASSWD-HERE"
+            self.dbuser=DB_settings.user
+            self.dbpw = DB_settings.password
         else:
-            raise SolarDBError( "Invalid mode: " + mode )
+            raise SE521DBError( "Invalid DB mode: " + mode )
 
         self.iomode = mode
         self.cnx = None
-        self.cs_roof = None
+        self.cursor_temps = None
         self.errorcount = 0
         log.info( "Opening DB, {} mode".format( self.iomode ) )
         
@@ -54,33 +63,30 @@ class roof_temp_DB( ):
     def open( self ):
     
         try:
-            self.cnx = mysql.connector.connect( user=self.dbuser, password=self.dbpw,
-                    host='127.0.0.1', database='solar_roof')
+            self.cnx = mysqlconn.connect( user=self.dbuser, password=self.dbpw,
+                    host=DB_settings.dbHost, port=DB_settings.dbPort, database=DB_settings.dbName)
 
-        except mysql.connector.Error as err:
-            if err.errno == msqlerrcode.ER_ACCESS_DENIED_ERROR:
-                log.exception("Bad user name or password: %s" % self.user)
-            elif err.errno == msqlerrcode.ER_BAD_DB_ERROR:
-                log.exception("Database does not exist")
-            else:
-                raise SolarDBError( err )
-            raise
+        except mysqlconn.Error as err:
+            # this is ugly - the mysqldb and mysql.connector have very different exception structures
+            # so try with lowest common denominator...
+            log.exception(f"Error connecting to database: {err}")
+            raise SE521DBError( f"Error connecting to database: {err}")
             
-        self.cs_roof= self.cnx.cursor( buffered=True )
+        self.cursor_temps= self.cnx.cursor(  )
 
 
     def add_data( self, data ):
         if self.cnx is None:
             self.open()
         try:
-            self.cs_roof.execute( roof_temp_DB.roof_insert, data )
+            self.cursor_temps.execute( temperatureDB.insert_stmt, data )
             
-        except mysql.connector.Error as err:
+        except mysqlconn.Error as err:
             log.exception( "adding MySQL data: %s" % err )
             self.errorcount += 1
             self.cnx = None         # force reopen attempt
             if self.errorcount > 10:
-                raise  SolarDBError( "too many failures writing DB" )
+                raise  SE521DBError( "too many failures writing DB" )
 
     def close( self ):
         self.close_cursor()
@@ -90,9 +96,9 @@ class roof_temp_DB( ):
             self.cnx = None
                 
     def close_cursor( self ):
-        if self.cs_roof is not None:
-            self.cs_roof.close()
-            self.cs_roof = None       
+        if self.cursor_temps is not None:
+            self.cursor_temps.close()
+            self.cursor_temps = None       
 
     
     
